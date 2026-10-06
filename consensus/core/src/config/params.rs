@@ -316,6 +316,11 @@ pub struct OverrideParams {
     /// AuxPoW proof (Option-2 dual acceptance).
     pub merged_mining_activation: Option<ForkActivation>,
 
+    /// DAA score at which a ZKas block's own coinbase may no longer contain the
+    /// reserved AuxPoW commitment marker. This separates native ZKas block bodies
+    /// from foreign parent coinbases used as AuxPoW witnesses.
+    pub auxpow_coinbase_commitment_activation: Option<ForkActivation>,
+
     /// Whether the coinbase mints its reward into the shielded pool (private-by-default
     /// networks) rather than as a transparent output. Overridable so tests can exercise
     /// the shielded pipeline on a small-pruning simnet base (which is otherwise
@@ -354,6 +359,7 @@ impl From<Params> for OverrideParams {
             crescendo_activation: Some(p.crescendo_activation),
             toccata_activation: Some(p.toccata_activation),
             merged_mining_activation: Some(p.merged_mining_activation),
+            auxpow_coinbase_commitment_activation: Some(p.auxpow_coinbase_commitment_activation),
             shielded_coinbase: Some(p.shielded_coinbase),
         }
     }
@@ -494,6 +500,13 @@ pub struct Params {
     /// clear the native kHeavyHash PoW; at/after it a block may instead carry a valid
     /// AuxPoW proof whose parent kHeavyHash clears our target (Option-2 dual acceptance).
     pub merged_mining_activation: ForkActivation,
+
+    /// DAA score at which the native-block / foreign-parent coinbase namespace
+    /// separation is enforced. Before activation, `ZKMM` is accepted in a ZKas
+    /// block's own coinbase for historical compatibility; at and after activation
+    /// it is reserved exclusively for the parent coinbase carried in an AuxPoW
+    /// witness. This must be scheduled as a coordinated consensus upgrade.
+    pub auxpow_coinbase_commitment_activation: ForkActivation,
 
     /// ZKas launch difficulty schedule — number of blocks (blue-score units) at the
     /// start of the chain during which difficulty is **pinned** to the genesis target
@@ -794,6 +807,9 @@ impl Params {
             dev_fee_accrual_activation: self.dev_fee_accrual_activation,
             dev_fee_payout_interval: self.dev_fee_payout_interval,
             merged_mining_activation: overrides.merged_mining_activation.unwrap_or(self.merged_mining_activation),
+            auxpow_coinbase_commitment_activation: overrides
+                .auxpow_coinbase_commitment_activation
+                .unwrap_or(self.auxpow_coinbase_commitment_activation),
 
             // Consensus-critical launch schedule; not exposed as a CLI override.
             low_difficulty_start_blocks: self.low_difficulty_start_blocks,
@@ -969,6 +985,9 @@ pub const MAINNET_PARAMS: Params = Params {
     // applies; since the July 2026 mainnet launch (fresh genesis), always() is the
     // intended, correct value. This is historical context, not a planned change.)
     merged_mining_activation: ForkActivation::always(),
+    // Deliberately unscheduled. A release that adopts the AuxPoW parent-reuse fix
+    // must replace this with a coordinated future DAA score.
+    auxpow_coinbase_commitment_activation: ForkActivation::never(),
 
     // ZKas launch difficulty: the low-difficulty bootstrap schedule is DISABLED on mainnet
     // (both 0), so the chain launches under pure upstream KIP-0004 DAA from genesis — the
@@ -1057,6 +1076,8 @@ pub const TESTNET_PARAMS: Params = Params {
     dev_fee_payout_interval: 1_000,
     // On testnet, merged mining is available from genesis for testing.
     merged_mining_activation: ForkActivation::always(),
+    // Keep testnet compatible until its operators choose a rehearsal height.
+    auxpow_coinbase_commitment_activation: ForkActivation::never(),
 
     // Launch difficulty schedule disabled on testnet.
     low_difficulty_start_blocks: 0,
@@ -1119,6 +1140,8 @@ pub const SIMNET_PARAMS: Params = Params {
     // long enough to cut per-block dev notes by three orders of magnitude.
     dev_fee_payout_interval: 1_000,
     merged_mining_activation: ForkActivation::always(),
+    // Simnet is disposable, so exercise the post-fix rule from genesis.
+    auxpow_coinbase_commitment_activation: ForkActivation::always(),
 
     // Launch difficulty schedule disabled on simnet.
     low_difficulty_start_blocks: 0,
@@ -1190,6 +1213,8 @@ pub const DEVNET_PARAMS: Params = Params {
     // long enough to cut per-block dev notes by three orders of magnitude.
     dev_fee_payout_interval: 20,
     merged_mining_activation: ForkActivation::always(),
+    // Devnet is disposable, so exercise the post-fix rule from genesis.
+    auxpow_coinbase_commitment_activation: ForkActivation::always(),
 
     // Pin difficulty to the (easy) genesis target for the first 50k blocks so the
     // short devnet demo chain stays CPU-mineable throughout (mirrors mainnet's launch
@@ -1215,6 +1240,13 @@ mod tests {
         let override_params: OverrideParams = serde_json::from_str(r#"{"toccata_activation":42}"#).unwrap();
 
         assert_eq!(override_params.toccata_activation, Some(ForkActivation::new(42)));
+    }
+
+    #[test]
+    fn override_params_deserializes_auxpow_coinbase_commitment_activation() {
+        let override_params: OverrideParams = serde_json::from_str(r#"{"auxpow_coinbase_commitment_activation":42}"#).unwrap();
+
+        assert_eq!(override_params.auxpow_coinbase_commitment_activation, Some(ForkActivation::new(42)));
     }
 
     #[test]

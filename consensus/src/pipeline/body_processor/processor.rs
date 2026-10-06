@@ -29,7 +29,7 @@ use kaspa_consensus_core::{
     blockstatus::BlockStatus::{self, StatusHeaderOnly, StatusInvalid},
     config::{
         genesis::GenesisBlock,
-        params::{ForkedParam, Params},
+        params::{ForkActivation, ForkedParam, Params},
     },
     mass::{BlockLaneLimits, BlockMassLimits, Mass, MassCalculator},
     tx::Transaction,
@@ -62,6 +62,9 @@ pub struct BlockBodyProcessor {
     pub(super) block_lane_limits: BlockLaneLimits,
     pub(super) genesis: GenesisBlock,
     pub(super) _ghostdag_k: KType,
+    /// DAA gate for the separation between ZKas coinbases and foreign AuxPoW
+    /// parent coinbases.
+    pub(super) auxpow_coinbase_commitment_activation: ForkActivation,
     /// Whether the block reward is a shielded (Orchard) coinbase note. When set,
     /// every block's declared coinbase payout address must be a canonical Orchard
     /// address (validated at body acceptance so a bad-address block never enters
@@ -120,6 +123,7 @@ impl BlockBodyProcessor {
             block_lane_limits: params.block_lane_limits,
             genesis: params.genesis.clone(),
             _ghostdag_k: params.ghostdag_k(),
+            auxpow_coinbase_commitment_activation: params.auxpow_coinbase_commitment_activation,
             shielded_coinbase: params.shielded_coinbase,
 
             statuses_store: storage.statuses_store.clone(),

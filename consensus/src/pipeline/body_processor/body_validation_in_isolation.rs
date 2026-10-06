@@ -19,7 +19,9 @@ impl BlockBodyProcessor {
         Self::check_has_transactions(block)?;
         Self::check_hash_merkle_root(block)?;
         Self::check_only_one_coinbase(block)?;
-        Self::check_zkas_coinbase_has_no_auxpow_commitment(block)?;
+        if self.auxpow_coinbase_commitment_activation.is_active(block.header.daa_score) {
+            Self::check_zkas_coinbase_has_no_auxpow_commitment(block)?;
+        }
         self.check_transactions_in_isolation(block)?;
         let mass = self.check_block_mass(block)?;
         self.check_duplicate_transactions(block)?;
@@ -182,7 +184,7 @@ mod tests {
         config::{Config, ConfigBuilder},
         consensus::test_consensus::TestConsensus,
         errors::RuleError,
-        params::MAINNET_PARAMS,
+        params::{ForkActivation, MAINNET_PARAMS},
     };
     use kaspa_consensus_core::{
         api::{BlockValidationFutures, ConsensusApi},
@@ -216,7 +218,9 @@ mod tests {
 
     #[test]
     fn validate_body_in_isolation_test() {
-        let consensus = TestConsensus::new(&Config::new(MAINNET_PARAMS));
+        let mut params = MAINNET_PARAMS;
+        params.auxpow_coinbase_commitment_activation = ForkActivation::always();
+        let consensus = TestConsensus::new(&Config::new(params));
         let wait_handles = consensus.init();
 
         let body_processor = consensus.block_body_processor();

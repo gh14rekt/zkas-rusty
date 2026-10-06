@@ -63,7 +63,8 @@ If the file cannot be read or parsed, `kaspad` prints the error and exits.
     "gas_per_lane": 500000
   },
   "crescendo_activation": 0,
-  "toccata_activation": 0
+  "toccata_activation": 0,
+  "auxpow_coinbase_commitment_activation": 0
 }
 ```
 
@@ -101,6 +102,8 @@ The `blockrate` field must either be absent or provided in full with all subfiel
 | blockrate                                   | Blockrate-related parameters            |
 | crescendo_activation                        | Crescendo DAA score                        |
 | toccata_activation                          | Toccata DAA score                        |
+| merged_mining_activation                    | AuxPoW acceptance DAA score              |
+| auxpow_coinbase_commitment_activation       | DAA for reserving `ZKMM` to foreign AuxPoW parent coinbases |
 
 **blockrate sub-fields:**
 
