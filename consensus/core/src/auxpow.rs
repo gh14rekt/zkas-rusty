@@ -46,6 +46,19 @@ use serde::{Deserialize, Serialize};
 /// coinbase payload. "ZKas Merged Mining".
 pub const MERGE_MINE_MAGIC: [u8; 4] = *b"ZKMM";
 
+/// Returns `true` if `payload` contains the reserved AuxPoW commitment marker.
+///
+/// A valid ZKas block must never carry this marker in *its own* coinbase. The
+/// marker is reserved for a foreign parent coinbase that is supplied as an
+/// [`AuxPow`] witness. Without that namespace separation, a native ZKas block
+/// can put a commitment to another ZKas block in its own miner-controlled
+/// coinbase extra-data and then serve as that block's AuxPoW parent. One nonce
+/// would then be accepted by both PoW paths.
+#[inline]
+pub fn contains_commitment_magic(payload: &[u8]) -> bool {
+    payload.windows(MERGE_MINE_MAGIC.len()).any(|window| window == MERGE_MINE_MAGIC)
+}
+
 /// Hard cap on [`AuxPow::coinbase_merkle_branch`] length. The branch has one entry
 /// per level of the parent's transaction Merkle tree, so a parent with `n`
 /// transactions needs `ceil(log2(n))` entries: 64 admits a parent with 2^64
@@ -386,5 +399,12 @@ mod tests {
         let (header, branch) = parent_with(cb.clone(), vec![]);
         let aux = AuxPow { parent_header: header, parent_coinbase: cb, coinbase_merkle_branch: branch };
         assert!(!aux.verify_binding(Hash::from_bytes([0x11u8; 32])), "commitment must equal the ZKas block hash");
+    }
+
+    #[test]
+    fn commitment_marker_detection_is_exact_and_position_independent() {
+        assert!(!contains_commitment_magic(b"ordinary miner extra data"));
+        assert!(contains_commitment_magic(b"prefixZKMM0123456789abcdef"));
+        assert!(contains_commitment_magic(&MERGE_MINE_MAGIC));
     }
 }

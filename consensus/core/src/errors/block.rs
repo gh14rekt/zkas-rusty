@@ -37,6 +37,9 @@ pub enum RuleError {
     #[error("block has no parents")]
     NoParents,
 
+    #[error("a ZKas coinbase payload contains the reserved AuxPoW commitment marker")]
+    ZKasCoinbaseContainsAuxPowCommitment,
+
     #[error("block has too many parents: got {0} when the limit is {1}")]
     TooManyParents(usize, usize),
 

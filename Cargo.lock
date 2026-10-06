@@ -9948,6 +9948,7 @@ dependencies = [
  "kaspa-core",
  "kaspa-grpc-client",
  "kaspa-p2p-lib",
+ "kaspa-pow",
  "kaspa-rpc-core",
  "kaspa-shielded-core",
  "kaspa-utils",

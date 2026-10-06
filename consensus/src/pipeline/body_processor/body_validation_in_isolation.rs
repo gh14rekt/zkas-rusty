@@ -6,6 +6,7 @@ use std::{
 use super::BlockBodyProcessor;
 use crate::errors::{BlockProcessResult, RuleError};
 use kaspa_consensus_core::{
+    auxpow::contains_commitment_magic,
     block::Block,
     mass::{ContextualMasses, Mass, NonContextualMasses},
     merkle::calc_hash_merkle_root,
@@ -18,6 +19,7 @@ impl BlockBodyProcessor {
         Self::check_has_transactions(block)?;
         Self::check_hash_merkle_root(block)?;
         Self::check_only_one_coinbase(block)?;
+        Self::check_zkas_coinbase_has_no_auxpow_commitment(block)?;
         self.check_transactions_in_isolation(block)?;
         let mass = self.check_block_mass(block)?;
         self.check_duplicate_transactions(block)?;
@@ -52,6 +54,19 @@ impl BlockBodyProcessor {
             return Err(RuleError::MultipleCoinbases(i));
         }
 
+        Ok(())
+    }
+
+    /// `ZKMM` belongs exclusively to a foreign-parent coinbase carried in an
+    /// AuxPoW witness.  Letting it appear in a ZKas block's own coinbase would
+    /// make the block usable as the witness parent of a second ZKas block.  If
+    /// both headers clear our target, one nonce would therefore earn two ZKas
+    /// rewards.  Enforce the namespace boundary on every block body, regardless
+    /// of whether that block itself was mined natively or through AuxPoW.
+    fn check_zkas_coinbase_has_no_auxpow_commitment(block: &Block) -> BlockProcessResult<()> {
+        if contains_commitment_magic(&block.transactions[0].payload) {
+            return Err(RuleError::ZKasCoinbaseContainsAuxPowCommitment);
+        }
         Ok(())
     }
 
@@ -463,6 +478,18 @@ mod tests {
         );
 
         body_processor.validate_body_in_isolation(&example_block.clone().to_immutable()).unwrap();
+
+        // The marker is legal in a foreign parent coinbase carried in an AuxPoW
+        // witness, but never in a ZKas block's own coinbase: otherwise this
+        // native-valid block could be reused as an AuxPoW parent for a second
+        // ZKas reward.
+        let mut block = example_block.clone();
+        block.transactions[0].payload.extend_from_slice(b"ZKMM");
+        block.header.hash_merkle_root = calc_hash_merkle_root(block.transactions.iter());
+        assert_match!(
+            body_processor.validate_body_in_isolation(&block.to_immutable()),
+            Err(RuleError::ZKasCoinbaseContainsAuxPowCommitment)
+        );
 
         let mut block = example_block.clone();
         let txs = &mut block.transactions;

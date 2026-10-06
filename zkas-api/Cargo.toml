@@ -25,6 +25,7 @@ kaspa-consensus-core.workspace = true
 # coinbases (`CoinbaseManager::calc_block_subsidy`), so the explorer cannot drift from
 # the chain's actual monetary policy.
 kaspa-consensus.workspace = true
+kaspa-pow.workspace = true
 kaspa-core.workspace = true
 # Shielded bundle decoding for the shielded-pool aggregation.
 kaspa-shielded-core = { workspace = true }
